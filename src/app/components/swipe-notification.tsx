@@ -6,7 +6,7 @@ import {
   animate,
   AnimatePresence,
 } from "motion/react";
-import imgAppIcon from "figma:asset/24b2559ac9eea98d87d7e4f52d179f2914f2e401.png";
+onst imgAppIcon = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png";
 
 const CONTAINER_W = 310;
 const GAP = 5;
