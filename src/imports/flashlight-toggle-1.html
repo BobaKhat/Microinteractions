@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flashlight Toggle — Micro-interaction</title>
+<link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #060606;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ── Scene ─────────────────────────────────────── */
+  #scene {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 40px;
+  }
+
+  /* ── Outer glow around the toggle ──────────────── */
+  #outer-glow {
+    position: absolute;
+    width: 140px;
+    height: 72px;
+    border-radius: 999px;
+    pointer-events: none;
+    left: 40px;
+    box-shadow: 0 0 0 0 rgba(255,240,102,0);
+    transition: box-shadow 0.4s ease;
+  }
+  #outer-glow.on {
+    box-shadow: 0 0 30px 8px rgba(255,240,102,0.18);
+  }
+
+  /* ── Beam container ─────────────────────────────── */
+  #beam-wrap {
+    position: absolute;
+    left: calc(40px + 140px - 50px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 460px;
+    height: 260px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transform-origin: left center;
+    transition: opacity 0.35s ease 0.1s;
+  }
+  #beam-wrap.on {
+    opacity: 1;
+  }
+
+
+
+  /* Core beam — tight bright cone */
+  #beam-core {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 80px;
+    background: radial-gradient(
+      ellipse at 0% 50%,
+      rgba(255,240,102,0.55) 0%,
+      rgba(255,240,102,0.18) 40%,
+      rgba(255,240,102,0) 100%
+    );
+    filter: blur(8px);
+  }
+
+  /* Outer bloom — wide soft falloff */
+  #beam-bloom {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 220px;
+    background: radial-gradient(
+      ellipse at 0% 50%,
+      rgba(255,240,102,0.22) 0%,
+      rgba(255,240,102,0.06) 45%,
+      rgba(255,240,102,0) 100%
+    );
+    filter: blur(22px);
+  }
+
+  /* Edge feather — kills any remaining hard lines */
+  #beam-feather {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at 0% 50%,
+      rgba(255,240,102,0.08) 0%,
+      rgba(255,240,102,0) 70%
+    );
+    filter: blur(30px);
+  }
+
+  /* Dust particles canvas */
+  #dust-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Creepy text */
+  #creepy-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 80px;
+    opacity: 0;
+    user-select: none;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+  #creepy-text.on {
+    opacity: 1;
+    transition: opacity 1.2s ease 0.4s;
+  }
+  #creepy-text span {
+    font-family: 'Creepster', cursive;
+    font-size: 30px;
+    color: #000;
+    text-shadow:
+      0 0 4px rgba(255,240,102,0.7),
+      0 0 12px rgba(255,240,102,0.35);
+    letter-spacing: 4px;
+    display: inline-block;
+    animation: none;
+  }
+  #creepy-text.on span {
+    animation: creepWiggle 0.7s ease-in-out infinite;
+  }
+  @keyframes creepWiggle {
+    0%   { transform: scale(1)    rotate(0deg)   translateY(0); }
+    15%  { transform: scale(1.12) rotate(-2deg)  translateY(-3px); }
+    30%  { transform: scale(0.96) rotate(3deg)   translateY(2px); }
+    50%  { transform: scale(1.18) rotate(-3deg)  translateY(-4px); }
+    70%  { transform: scale(0.98) rotate(2deg)   translateY(1px); }
+    85%  { transform: scale(1.1)  rotate(-1deg)  translateY(-2px); }
+    100% { transform: scale(1)    rotate(0deg)   translateY(0); }
+  }
+
+  /* ── Toggle button ──────────────────────────────── */
+  #toggle {
+    position: relative;
+    z-index: 10;
+    width: 140px;
+    height: 72px;
+    border-radius: 999px;
+    border: 1.5px solid #262626;
+    background: #000;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    outline: none;
+    transition: border-color 0.3s ease, transform 0.15s ease;
+  }
+  #toggle:hover  { transform: scale(1.02); }
+  #toggle:active { transform: scale(0.95); }
+  #toggle.on {
+    border-color: #FFF066;
+  }
+
+  /* ── Knob ───────────────────────────────────────── */
+  #knob {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #262626;
+    flex-shrink: 0;
+    transform: translateX(0);
+    transition:
+      transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  #knob.on {
+    transform: translateX(68px);
+    background: #FFF066;
+    box-shadow:
+      0 0 20px 4px  rgba(255,240,102,0.45),
+      0 0 40px 10px rgba(255,240,102,0.2),
+      0 0 60px 15px rgba(255,240,102,0.1);
+  }
+
+  /* Inner highlight (glass bulb feel) */
+  #knob::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  #knob.on::after { opacity: 0.1; }
+</style>
+</head>
+<body>
+
+<div id="scene">
+  <!-- Outer glow ring -->
+  <div id="outer-glow"></div>
+
+  <!-- Light beam -->
+  <div id="beam-wrap">
+    <div id="beam-feather"></div>
+    <div id="beam-bloom"></div>
+    <div id="beam-core"></div>
+    <canvas id="dust-canvas"></canvas>
+    <div id="creepy-text"><span>TURN IT OFF</span></div>
+  </div>
+
+  <!-- Toggle -->
+  <button id="toggle" role="switch" aria-checked="false">
+    <div id="knob"></div>
+  </button>
+</div>
+
+<script>
+  const toggle    = document.getElementById('toggle');
+  const knob      = document.getElementById('knob');
+  const outerGlow = document.getElementById('outer-glow');
+  const beamWrap  = document.getElementById('beam-wrap');
+  const creepy    = document.getElementById('creepy-text');
+  const canvas    = document.getElementById('dust-canvas');
+  const ctx       = canvas.getContext('2d');
+
+  let isOn = false;
+  let dustRAF = null;
+
+  // ── Resize canvas to match beam ──
+  function resizeCanvas() {
+    canvas.width  = beamWrap.offsetWidth;
+    canvas.height = beamWrap.offsetHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // ── Dust mote particles ──────────────────────────
+  const PARTICLE_COUNT = 30;
+  const particles = Array.from({ length: PARTICLE_COUNT }, () => makeDust());
+
+  function makeDust(forceReset = false) {
+    return {
+      x:        forceReset ? 0 : Math.random() * canvas.width,
+      y:        Math.random() * canvas.height,
+      size:     Math.random() * 2.2 + 0.8,
+      speed:    Math.random() * 0.6 + 0.25,
+      opacity:  Math.random() * 0.5 + 0.1,
+      blur:     Math.random() > 0.4,
+      yDrift:   (Math.random() - 0.5) * 0.3,
+    };
+  }
+
+  // How bright a particle should be at this x position
+  // (full brightness near toggle, fades at far end)
+  function beamOpacity(x) {
+    const near  = x / canvas.width;          // 0 → 1
+    const fade  = 1 - Math.pow(near, 1.4);   // bright near, dark far
+    return fade;
+  }
+
+  function drawDust() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!isOn) return;
+
+    particles.forEach(p => {
+      p.x += p.speed;
+      p.y += p.yDrift;
+
+      if (p.x > canvas.width) Object.assign(p, makeDust(true));
+
+      const alpha = p.opacity * beamOpacity(p.x);
+      if (alpha <= 0) return;
+
+      ctx.save();
+      if (p.blur) ctx.filter = 'blur(1.2px)';
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#FFF066';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    dustRAF = requestAnimationFrame(drawDust);
+  }
+
+  // ── Toggle logic ─────────────────────────────────
+  toggle.addEventListener('click', () => {
+    isOn = !isOn;
+    toggle.setAttribute('aria-checked', isOn);
+
+    toggle.classList.toggle('on',    isOn);
+    knob.classList.toggle('on',      isOn);
+    outerGlow.classList.toggle('on', isOn);
+    beamWrap.classList.toggle('on',  isOn);
+
+    if (isOn) {
+      // Reset dust positions so they stream in fresh
+      particles.forEach(p => Object.assign(p, makeDust(true)));
+      cancelAnimationFrame(dustRAF);
+      drawDust();
+
+      // Delay creepy text so it flickers in after beam settles
+      setTimeout(() => creepy.classList.add('on'), 400);
+    } else {
+      creepy.classList.remove('on');
+      cancelAnimationFrame(dustRAF);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  });
+</script>
+</body>
+</html>

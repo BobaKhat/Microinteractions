@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Estimated Networth</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #141414;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'SF Pro Display', 'SF Pro', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 373px;
+    height: 373px;
+    user-select: none;
+    -webkit-user-select: none;
+    padding: 24px 12px;
+  }
+
+  .inner {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    transform: scale(0.88);
+    transform-origin: center center;
+  }
+
+  .card {
+    width: 311px;
+    height: 347px;
+    background-color: #080808;
+    border-radius: 20px;
+    border: 0.5px solid #333333;
+    position: relative;
+    overflow: hidden;
+    opacity: 0.9;
+  }
+
+  .ambient-glow {
+    position: absolute;
+    top: 20%;
+    left: 25%;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(181,255,77,0.12) 0%, rgba(181,255,77,0.04) 40%, transparent 70%);
+    pointer-events: none;
+    filter: blur(40px);
+  }
+
+  .header-label {
+    position: absolute;
+    left: 19.5px;
+    top: 14.5px;
+    color: #5e5e5e;
+    font-size: 13px;
+    font-weight: 590;
+    letter-spacing: 0.01em;
+  }
+
+  .value-row {
+    position: absolute;
+    left: 19.5px;
+    top: 40.5px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .value-amount {
+    color: #fff;
+    font-size: 24px;
+    font-weight: 590;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .value-growth {
+    color: #c8ff75;
+    font-size: 13px;
+    font-weight: 590;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .by-age {
+    position: absolute;
+    left: 19.5px;
+    top: 74.5px;
+    color: #555;
+    font-size: 12px;
+    font-weight: 590;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .grid-label {
+    position: absolute;
+    left: 19.5px;
+    color: #40413f;
+    font-size: 10px;
+    font-weight: 510;
+  }
+
+  .grid-line {
+    position: absolute;
+    left: 64.5px;
+    width: 222px;
+    height: 0.5px;
+    background-color: #222222;
+  }
+
+  .baseline {
+    position: absolute;
+    left: 64.5px;
+    top: 299.5px;
+    width: 228px;
+    height: 0.5px;
+    background-color: #222222;
+  }
+
+  /* Bar container */
+  .bar-container {
+    position: absolute;
+    width: 35px;
+    cursor: pointer;
+  }
+
+  /* Hover value label */
+  .bar-value-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    width: 35px;
+    text-align: center;
+    color: #b4e569;
+    font-size: 10px;
+    font-weight: 590;
+    white-space: nowrap;
+    z-index: 10;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.25s cubic-bezier(0.23,1,0.32,1), transform 0.25s cubic-bezier(0.23,1,0.32,1);
+  }
+
+  .bar-container.hovered .bar-value-label {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Bar body */
+  .bar-body {
+    width: 35px;
+    border-radius: 10px 10px 0 0;
+    position: relative;
+    transform-origin: bottom;
+    transform: scaleY(0);
+    transition: background-color 0.3s ease;
+  }
+
+  .bar-body.animate {
+    animation: growBar 0.7s cubic-bezier(0.23,1,0.32,1) both;
+  }
+
+  @keyframes growBar {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+
+  .bar-container.hovered .bar-body {
+    background-image: none !important;
+    background-color: #111111 !important;
+  }
+
+  /* Border overlay */
+  .bar-border {
+    position: absolute;
+    top: -0.5px;
+    left: -0.5px;
+    right: -0.5px;
+    bottom: 0;
+    border-radius: 10.5px 10.5px 0 0;
+    border-top: 0.5px solid #b6e86a;
+    border-left: 0.5px solid #b6e86a;
+    border-right: 0.5px solid #b6e86a;
+    border-bottom: none;
+    pointer-events: none;
+    transition: border-color 0.3s ease;
+  }
+
+  .bar-container.hovered .bar-border {
+    bottom: -0.5px;
+    border-top-color: #414240;
+    border-left-color: #414240;
+    border-right-color: #414240;
+    border-bottom: 0.5px solid #414240;
+  }
+
+  /* Inner glow */
+  .bar-glow {
+    position: absolute;
+    inset: -0.5px;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0px 0px 0px 0px rgba(180,229,105,0);
+    transition: box-shadow 0.35s ease-out;
+  }
+
+  .bar-container.hovered .bar-glow {
+    box-shadow: inset 0px 0px 17.1px 0px #b4e569;
+  }
+
+  /* Year labels */
+  .year-label {
+    position: absolute;
+    top: 319.5px;
+    width: 35px;
+    text-align: center;
+    color: #464746;
+    font-size: 10px;
+    font-weight: 400;
+    transition: color 0.25s ease;
+  }
+
+  .year-label.hovered {
+    color: #b4e569;
+  }
+
+  .hint {
+    color: #383838;
+    font-size: 11px;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="inner">
+    <div class="card">
+      <div class="ambient-glow"></div>
+      <p class="header-label">ESTIMATED NETWORTH</p>
+
+      <div class="value-row">
+        <p class="value-amount" id="valueAmount"></p>
+        <p class="value-growth" id="valueGrowth"></p>
+      </div>
+      <p class="by-age" id="byAge"></p>
+
+      <!-- Grid labels & lines built by JS -->
+      <div id="gridArea"></div>
+      <div class="baseline"></div>
+
+      <!-- Bars built by JS -->
+      <div id="barsArea"></div>
+
+      <!-- Year labels built by JS -->
+      <div id="yearsArea"></div>
+    </div>
+
+    <p class="hint">hover to inspect</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var data = [
+    { year: "2026", value: 189420, label: "$189k", barHeight: 41,  left: 64.5,  gradientAngle: 143.543, age: 34, growthPercent: 8  },
+    { year: "2029", value: 251780, label: "$251k", barHeight: 57,  left: 112.5, gradientAngle: 134.234, age: 37, growthPercent: 12 },
+    { year: "2033", value: 434150, label: "$434k", barHeight: 84,  left: 160.5, gradientAngle: 123.451, age: 41, growthPercent: 18 },
+    { year: "2036", value: 502340, label: "$502k", barHeight: 115, left: 208.5, gradientAngle: 115.76,  age: 44, growthPercent: 24 },
+    { year: "2039", value: 636920, label: "$636k", barHeight: 150, left: 256.5, gradientAngle: 110.303, age: 47, growthPercent: 30 }
+  ];
+
+  var gridLines = [
+    { label: "700k", labelTop: 118.5, lineTop: 124.5 },
+    { label: "600k", labelTop: 153.5, lineTop: 159.5 },
+    { label: "500k", labelTop: 188.5, lineTop: 194.5 },
+    { label: "400k", labelTop: 223.5, lineTop: 229.5 },
+    { label: "200k", labelTop: 258.5, lineTop: 264.5 },
+    { label: "100k", labelTop: 293.5, lineTop: 299.5 }
+  ];
+
+  var BASELINE_Y = 299.5;
+  var defaultData = data[data.length - 1];
+
+  // Current animated values
+  var currentValue = defaultData.value;
+  var currentGrowth = defaultData.growthPercent;
+  var currentAge = defaultData.age;
+  var targetValue = defaultData.value;
+  var targetGrowth = defaultData.growthPercent;
+  var targetAge = defaultData.age;
+
+  var valueEl = document.getElementById("valueAmount");
+  var growthEl = document.getElementById("valueGrowth");
+  var ageEl = document.getElementById("byAge");
+
+  // Build grid
+  var gridArea = document.getElementById("gridArea");
+  gridLines.forEach(function(g, i) {
+    var label = document.createElement("p");
+    label.className = "grid-label";
+    label.style.top = g.labelTop + "px";
+    label.textContent = g.label;
+    gridArea.appendChild(label);
+
+    if (i < 5) {
+      var line = document.createElement("div");
+      line.className = "grid-line";
+      line.style.top = g.lineTop + "px";
+      if (i === 4) line.style.backgroundColor = "#3a3a3a";
+      gridArea.appendChild(line);
+    }
+  });
+
+  // Build bars
+  var barsArea = document.getElementById("barsArea");
+  var yearsArea = document.getElementById("yearsArea");
+  var barContainers = [];
+  var yearLabels = [];
+
+  data.forEach(function(bar, i) {
+    var barTop = BASELINE_Y - bar.barHeight;
+
+    // Container
+    var container = document.createElement("div");
+    container.className = "bar-container";
+    container.style.left = bar.left + "px";
+    container.style.top = barTop + "px";
+    container.style.height = bar.barHeight + "px";
+
+    // Value label
+    var valLabel = document.createElement("p");
+    valLabel.className = "bar-value-label";
+    valLabel.textContent = bar.label;
+    container.appendChild(valLabel);
+
+    // Bar body
+    var body = document.createElement("div");
+    body.className = "bar-body";
+    body.style.height = bar.barHeight + "px";
+    body.style.backgroundImage = "linear-gradient(" + bar.gradientAngle + "deg, rgb(0,0,0) 2.6%, rgb(24,24,24) 97.4%)";
+
+    // Border overlay
+    var border = document.createElement("div");
+    border.className = "bar-border";
+    body.appendChild(border);
+
+    // Glow
+    var glow = document.createElement("div");
+    glow.className = "bar-glow";
+    body.appendChild(glow);
+
+    container.appendChild(body);
+    barsArea.appendChild(container);
+    barContainers.push({ el: container, body: body, data: bar });
+
+    // Year label
+    var yearLabel = document.createElement("p");
+    yearLabel.className = "year-label";
+    yearLabel.style.left = bar.left + "px";
+    yearLabel.textContent = bar.year;
+    yearsArea.appendChild(yearLabel);
+    yearLabels.push(yearLabel);
+
+    // Hover events
+    container.addEventListener("mouseenter", function() {
+      container.classList.add("hovered");
+      yearLabel.classList.add("hovered");
+      setTarget(bar);
+    });
+    container.addEventListener("mouseleave", function() {
+      container.classList.remove("hovered");
+      yearLabel.classList.remove("hovered");
+      setTarget(defaultData);
+    });
+
+    // Staggered grow animation
+    setTimeout(function() {
+      body.classList.add("animate");
+    }, 100 + i * 80);
+  });
+
+  function setTarget(d) {
+    targetValue = d.value;
+    targetGrowth = d.growthPercent;
+    targetAge = d.age;
+  }
+
+  // Animation loop for number counting
+  var animating = false;
+
+  function updateDisplay() {
+    valueEl.textContent = "$" + Math.round(currentValue).toLocaleString();
+    growthEl.textContent = "+ " + Math.round(currentGrowth) + "%";
+    ageEl.textContent = "by " + Math.round(currentAge);
+  }
+
+  function lerp(current, target, speed) {
+    var diff = target - current;
+    if (Math.abs(diff) < 1) return target;
+    return current + diff * speed;
+  }
+
+  function tick() {
+    currentValue = lerp(currentValue, targetValue, 0.12);
+    currentGrowth = lerp(currentGrowth, targetGrowth, 0.15);
+    currentAge = lerp(currentAge, targetAge, 0.15);
+    updateDisplay();
+    requestAnimationFrame(tick);
+  }
+
+  updateDisplay();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

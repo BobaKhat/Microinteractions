@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volume Control</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #141414;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .vol-frame {
+    width: 373px;
+    height: 373px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+
+  .vol-inner {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .vol-widget {
+    width: 100%;
+    background-color: #080808;
+    border-radius: 18px;
+    padding: 20px 22px;
+    border: 1px solid #1a1a1a;
+    transition: border-color 0.3s;
+  }
+
+  .vol-widget.danger {
+    border-color: rgba(255, 60, 60, 0.15);
+  }
+
+  .vol-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .vol-icon-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  .vol-icon-col svg {
+    transition: color 0.3s;
+  }
+
+  .vol-percent {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.25);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+
+  .vol-percent.danger {
+    color: rgba(255, 80, 80, 0.8);
+  }
+
+  .vol-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    flex: 1;
+    height: 32px;
+  }
+
+  .vol-seg {
+    flex: 1;
+    border-radius: 1.5px;
+    background-color: rgba(255,255,255,0.06);
+  }
+
+  .hold-btn {
+    width: 56px;
+    height: 32px;
+    min-width: 56px;
+    max-width: 56px;
+    min-height: 32px;
+    max-height: 32px;
+    border-radius: 8px;
+    border: none;
+    background-color: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.35);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    font-family: 'Inter', -apple-system, sans-serif;
+    cursor: pointer;
+    flex-shrink: 0;
+    flex-grow: 0;
+    transition: all 0.15s;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .hold-btn.active {
+    background-color: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.9);
+  }
+
+  .vol-warning {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+    margin-top: 0;
+  }
+
+  .vol-warning.show {
+    max-height: 40px;
+    opacity: 1;
+    margin-top: 12px;
+  }
+
+  .vol-warning-inner {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background-color: rgba(255, 60, 60, 0.08);
+    border: 1px solid rgba(255, 60, 60, 0.12);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .vol-warning-inner svg {
+    flex-shrink: 0;
+  }
+
+  .vol-warning-inner span {
+    font-size: 0.65rem;
+    color: rgba(255, 80, 80, 0.7);
+  }
+
+  @keyframes pulseWarn {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 0.4; }
+  }
+
+  .warn-icon-pulse {
+    animation: pulseWarn 1s ease-in-out infinite;
+  }
+
+  .vol-hint {
+    text-align: center;
+    margin-top: 16px;
+    color: rgba(255,255,255,0.1);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<div class="vol-frame">
+  <div class="vol-inner">
+    <div class="vol-widget" id="widget">
+      <div class="vol-row">
+        <div class="vol-icon-col">
+          <div id="volIcon"></div>
+          <span class="vol-percent" id="volPercent">0%</span>
+        </div>
+        <div class="vol-bars" id="volBars"></div>
+        <div id="holdBtnWrap" style="width:56px;height:32px;flex-shrink:0;flex-grow:0;">
+          <button id="holdBtn" style="display:flex;align-items:center;justify-content:center;width:56px;height:32px;padding:0;margin:0;border:none;border-radius:8px;font-size:10px;font-weight:500;letter-spacing:0.05em;line-height:1;cursor:pointer;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35);font-family:'Inter',-apple-system,sans-serif;overflow:hidden;box-sizing:border-box;">HOLD</button>
+        </div>
+      </div>
+      <div class="vol-warning" id="warning">
+        <div class="vol-warning-inner">
+          <svg id="warnIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,80,80,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>Volume may damage hearing</span>
+        </div>
+      </div>
+    </div>
+    <p class="vol-hint">Hold the button to increase volume</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var SEGMENTS = 24;
+  var volume = 0;
+  var isHolding = false;
+
+  var widget = document.getElementById("widget");
+  var volIcon = document.getElementById("volIcon");
+  var volPercent = document.getElementById("volPercent");
+  var volBars = document.getElementById("volBars");
+  var holdBtn = document.getElementById("holdBtn");
+  var warning = document.getElementById("warning");
+  var warnIcon = document.getElementById("warnIcon");
+
+  // Build segments
+  var segments = [];
+  for (var i = 0; i < SEGMENTS; i++) {
+    var seg = document.createElement("div");
+    seg.className = "vol-seg";
+    seg.style.height = (8 + (i / SEGMENTS) * 24) + "px";
+    volBars.appendChild(seg);
+    segments.push(seg);
+  }
+
+  // SVG icon templates
+  var iconVolumeX = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+  var iconVolume1 = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="COLOR" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+  var iconVolume2 = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="COLOR" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+
+  function getSegmentColor(segIndex, v) {
+    var segPercent = segIndex / SEGMENTS;
+    if (segPercent > v) return "rgba(255,255,255,0.06)";
+    if (segPercent < 0.4) return "rgba(255,255,255," + (0.6 + segPercent * 0.6) + ")";
+    if (segPercent < 0.65) {
+      var t = (segPercent - 0.4) / 0.25;
+      return "rgba(255," + Math.round(230 - t * 60) + "," + Math.round(220 - t * 150) + ",0.9)";
+    }
+    if (segPercent < 0.85) {
+      var t2 = (segPercent - 0.65) / 0.2;
+      return "rgba(255," + Math.round(170 - t2 * 100) + "," + Math.round(70 - t2 * 40) + ",0.95)";
+    }
+    var t3 = Math.min(1, (segPercent - 0.85) / 0.15);
+    return "rgba(255," + Math.round(70 - t3 * 40) + "," + Math.round(30 - t3 * 10) + ",1)";
+  }
+
+  function getSegmentGlow(segIndex, v) {
+    var segPercent = segIndex / SEGMENTS;
+    if (segPercent > v) return "none";
+    if (segPercent < 0.4) return "none";
+    if (segPercent < 0.7) return "0 0 6px rgba(255,180,50,0.3)";
+    return "0 0 8px rgba(255,60,60,0.5)";
+  }
+
+  function updateUI() {
+    var isDanger = volume > 0.8;
+    var isWarning = volume > 0.6;
+    var pct = Math.round(volume * 100);
+
+    // Percent
+    volPercent.textContent = pct + "%";
+    volPercent.className = "vol-percent" + (isDanger ? " danger" : "");
+
+    // Icon
+    var iconColor;
+    if (isDanger) {
+      iconColor = "rgba(255,80,80,0.9)";
+    } else if (isWarning) {
+      iconColor = "rgba(255,200,100,0.8)";
+    } else {
+      iconColor = "rgba(255,255,255,0.4)";
+    }
+
+    if (volume < 0.01) {
+      volIcon.innerHTML = iconVolumeX;
+    } else if (volume < 0.5) {
+      volIcon.innerHTML = iconVolume1.replace("COLOR", iconColor);
+    } else {
+      volIcon.innerHTML = iconVolume2.replace(/COLOR/g, iconColor);
+    }
+
+    // Segments
+    for (var i = 0; i < SEGMENTS; i++) {
+      var segPercent = (i + 1) / SEGMENTS;
+      var isActive = segPercent <= volume;
+      segments[i].style.backgroundColor = isActive ? getSegmentColor(i + 1, volume) : "rgba(255,255,255,0.06)";
+      segments[i].style.boxShadow = isActive ? getSegmentGlow(i, volume) : "none";
+    }
+
+    // Widget border
+    widget.className = "vol-widget" + (isDanger ? " danger" : "");
+
+    // Warning
+    warning.className = "vol-warning" + (isDanger ? " show" : "");
+    warnIcon.className = isDanger ? "warn-icon-pulse" : "";
+
+    // Button
+    if (isHolding) {
+      holdBtn.style.background = "rgba(255,255,255,0.15)";
+      holdBtn.style.color = "rgba(255,255,255,0.9)";
+      holdBtn.textContent = "+";
+    } else {
+      holdBtn.style.background = "rgba(255,255,255,0.06)";
+      holdBtn.style.color = "rgba(255,255,255,0.35)";
+      holdBtn.textContent = "HOLD";
+    }
+
+    // Jitter
+    var intensity = Math.pow(volume, 2.8);
+    var maxJitter = 6;
+    if (volume > 0.01) {
+      var jx = (Math.random() - 0.5) * 2 * maxJitter * intensity;
+      var jy = (Math.random() - 0.5) * 2 * maxJitter * intensity;
+      volBars.style.transform = "translate(" + jx + "px," + jy + "px)";
+    } else {
+      volBars.style.transform = "translate(0,0)";
+    }
+  }
+
+  function tick() {
+    if (isHolding) {
+      volume = Math.min(1, volume + 0.004);
+    } else {
+      volume = Math.max(0, volume - 0.01);
+    }
+    updateUI();
+    requestAnimationFrame(tick);
+  }
+
+  // Hold events
+  holdBtn.addEventListener("mousedown", function(e) {
+    e.preventDefault();
+    isHolding = true;
+  });
+  holdBtn.addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    isHolding = true;
+  });
+  window.addEventListener("mouseup", function() { isHolding = false; });
+  window.addEventListener("touchend", function() { isHolding = false; });
+
+  updateUI();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

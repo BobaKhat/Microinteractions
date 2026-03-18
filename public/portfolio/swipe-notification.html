@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Swipe Notification</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #141414;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'SF Pro', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .notif-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 373px;
+    height: 373px;
+  }
+
+  .notif-container {
+    width: 310px;
+    height: 64px;
+    position: relative;
+  }
+
+  .notif-inner {
+    height: 64px;
+    position: relative;
+  }
+
+  /* Action buttons row */
+  .actions-row {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .action-btn {
+    height: 100%;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    border: none;
+    font-size: 13px;
+    white-space: nowrap;
+    font-family: inherit;
+    width: 0;
+    opacity: 0;
+    transform: scale(0.3);
+    transition: none;
+  }
+
+  .action-btn.mute {
+    background: rgba(255,255,255,0.8);
+    color: black;
+  }
+
+  .action-btn.delete {
+    background: rgba(255,59,48,0.15);
+    color: rgba(255,59,48,1);
+  }
+
+  /* Notification card */
+  .notif-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(255,255,255,0.8);
+    border-radius: 20px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    width: 310px;
+    cursor: grab;
+    touch-action: none;
+    will-change: transform;
+  }
+
+  .notif-card.dragging { cursor: grabbing; }
+
+  .app-icon {
+    margin-left: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #FF6B35, #FF3B30);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .notif-content {
+    margin-left: 12px;
+    flex: 1;
+    min-width: 0;
+    padding-right: 14px;
+  }
+
+  .notif-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .notif-title {
+    font-size: 13px;
+    color: black;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .notif-time {
+    font-size: 10px;
+    color: rgba(0,0,0,0.8);
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .notif-body {
+    font-size: 13px;
+    color: black;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Dismissed state */
+  .dismissed-text {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    opacity: 0;
+    transform: scale(0.95);
+    animation: fadeInScale 0.3s ease forwards;
+  }
+
+  @keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .hint-text {
+    margin-top: 16px;
+    font-size: 11px;
+    color: #383838;
+    font-weight: 500;
+  }
+
+  /* Drag overlay */
+  .drag-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    cursor: grabbing;
+    touch-action: none;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="notif-wrapper">
+  <div class="notif-container" id="container">
+    <div class="notif-inner" id="notifInner">
+      <!-- Action buttons behind -->
+      <div class="actions-row">
+        <button class="action-btn mute" id="btnMute">Mute</button>
+        <button class="action-btn delete" id="btnDelete">Delete</button>
+      </div>
+
+      <!-- Notification card -->
+      <div class="notif-card" id="notifCard">
+        <div class="app-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+            <polyline points="2,12 5,8 8,14 11,6 14,16 17,10 20,12 22,12" />
+          </svg>
+        </div>
+        <div class="notif-content">
+          <div class="notif-header">
+            <span class="notif-title">Earthquake Notification</span>
+            <span class="notif-time">8min ago</span>
+          </div>
+          <p class="notif-body">An 7.1 Earthquake was recorded off Russia</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint-text">swipe left to reveal actions</p>
+</div>
+
+<div class="drag-overlay" id="dragOverlay"></div>
+
+<script>
+(function() {
+  var CONTAINER_W = 310;
+  var GAP = 5;
+  var BTN_MAX = 80;
+  var TOTAL_DRAG = GAP + BTN_MAX + GAP + BTN_MAX; // 170
+  var SNAP_THRESHOLD = -55;
+
+  var container = document.getElementById("container");
+  var notifInner = document.getElementById("notifInner");
+  var notifCard = document.getElementById("notifCard");
+  var btnMute = document.getElementById("btnMute");
+  var btnDelete = document.getElementById("btnDelete");
+  var dragOverlay = document.getElementById("dragOverlay");
+
+  var dragX = 0;
+  var isDragging = false;
+  var dragStartClientX = 0;
+  var dragStartDragX = 0;
+  var dismissed = false;
+
+  // Spring animation
+  var springRaf = null;
+  var springVel = 0;
+
+  function springTo(target, onComplete) {
+    if (springRaf) cancelAnimationFrame(springRaf);
+    springVel = 0;
+    var stiffness = 400;
+    var damping = 35;
+    var prev = null;
+
+    function tick(now) {
+      var dt = prev ? Math.min((now - prev) / 1000, 0.032) : 1/60;
+      prev = now;
+      var steps = 8;
+      var subDt = dt / steps;
+      for (var i = 0; i < steps; i++) {
+        var force = -stiffness * (dragX - target) - damping * springVel;
+        springVel += force * subDt;
+        dragX += springVel * subDt;
+      }
+      if (Math.abs(dragX - target) < 0.3 && Math.abs(springVel) < 0.3) {
+        dragX = target;
+        springVel = 0;
+        updateUI();
+        if (onComplete) onComplete();
+        return;
+      }
+      updateUI();
+      springRaf = requestAnimationFrame(tick);
+    }
+    springRaf = requestAnimationFrame(tick);
+  }
+
+  function clamp(min, max, v) { return Math.max(min, Math.min(max, v)); }
+
+  function getBtn1Props(dx) {
+    var revealed = -dx;
+    var width = clamp(0, BTN_MAX, revealed - GAP);
+    var progress = width / BTN_MAX;
+    return {
+      width: Math.max(0, width),
+      opacity: progress < 0.05 ? 0 : clamp(0, 1, (progress - 0.05) * 2),
+      scale: clamp(0.3, 1, 0.3 + progress * 0.7)
+    };
+  }
+
+  function getBtn2Props(dx) {
+    var revealed = -dx;
+    var phase2 = revealed - GAP - BTN_MAX - GAP;
+    var width = clamp(0, BTN_MAX, phase2);
+    var progress = width / BTN_MAX;
+    return {
+      width: Math.max(0, width),
+      opacity: progress < 0.05 ? 0 : clamp(0, 1, (progress - 0.05) * 2),
+      scale: clamp(0.3, 1, 0.3 + progress * 0.7)
+    };
+  }
+
+  function updateUI() {
+    notifCard.style.transform = "translateX(" + dragX + "px)";
+
+    var b1 = getBtn1Props(dragX);
+    var b2 = getBtn2Props(dragX);
+
+    btnMute.style.width = b1.width + "px";
+    btnMute.style.opacity = b1.opacity;
+    btnMute.style.transform = "scale(" + b1.scale + ")";
+
+    btnDelete.style.width = b2.width + "px";
+    btnDelete.style.opacity = b2.opacity;
+    btnDelete.style.transform = "scale(" + b2.scale + ")";
+  }
+
+  // Pointer events on card
+  notifCard.addEventListener("pointerdown", function(e) {
+    if (dismissed) return;
+    e.preventDefault();
+    if (springRaf) { cancelAnimationFrame(springRaf); springRaf = null; }
+    dragStartClientX = e.clientX;
+    dragStartDragX = dragX;
+    isDragging = true;
+    notifCard.classList.add("dragging");
+    dragOverlay.style.display = "block";
+  });
+
+  dragOverlay.addEventListener("pointermove", function(e) {
+    if (!isDragging) return;
+    var dx = e.clientX - dragStartClientX;
+    var raw = dragStartDragX + dx;
+
+    if (raw > 0) {
+      dragX = raw * 0.08;
+    } else if (raw < -TOTAL_DRAG) {
+      dragX = -TOTAL_DRAG + (raw + TOTAL_DRAG) * 0.08;
+    } else {
+      dragX = raw;
+    }
+    updateUI();
+  });
+
+  function endDrag() {
+    if (!isDragging) return;
+    isDragging = false;
+    notifCard.classList.remove("dragging");
+    dragOverlay.style.display = "none";
+
+    if (dragX < SNAP_THRESHOLD) {
+      springTo(-TOTAL_DRAG);
+    } else {
+      springTo(0);
+    }
+  }
+
+  dragOverlay.addEventListener("pointerup", endDrag);
+  dragOverlay.addEventListener("pointercancel", endDrag);
+
+  // Mute button
+  btnMute.addEventListener("click", function() {
+    springTo(0);
+  });
+
+  // Delete button
+  btnDelete.addEventListener("click", function() {
+    dismissed = true;
+    notifInner.innerHTML = '<div class="dismissed-text">Notification dismissed</div>';
+
+    setTimeout(function() {
+      dismissed = false;
+      dragX = 0;
+
+      notifInner.innerHTML =
+        '<div class="actions-row">' +
+          '<button class="action-btn mute" id="btnMute">Mute</button>' +
+          '<button class="action-btn delete" id="btnDelete">Delete</button>' +
+        '</div>' +
+        '<div class="notif-card" id="notifCard">' +
+          '<div class="app-icon">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">' +
+              '<polyline points="2,12 5,8 8,14 11,6 14,16 17,10 20,12 22,12" />' +
+            '</svg>' +
+          '</div>' +
+          '<div class="notif-content">' +
+            '<div class="notif-header">' +
+              '<span class="notif-title">Earthquake Notification</span>' +
+              '<span class="notif-time">8min ago</span>' +
+            '</div>' +
+            '<p class="notif-body">An 7.1 Earthquake was recorded off Russia</p>' +
+          '</div>' +
+        '</div>';
+
+      // Re-bind elements
+      rebind();
+      updateUI();
+    }, 1200);
+  });
+
+  function rebind() {
+    notifCard = document.getElementById("notifCard");
+    btnMute = document.getElementById("btnMute");
+    btnDelete = document.getElementById("btnDelete");
+
+    notifCard.addEventListener("pointerdown", function(e) {
+      if (dismissed) return;
+      e.preventDefault();
+      if (springRaf) { cancelAnimationFrame(springRaf); springRaf = null; }
+      dragStartClientX = e.clientX;
+      dragStartDragX = dragX;
+      isDragging = true;
+      notifCard.classList.add("dragging");
+      dragOverlay.style.display = "block";
+    });
+
+    btnMute.addEventListener("click", function() {
+      springTo(0);
+    });
+
+    btnDelete.addEventListener("click", function() {
+      dismissed = true;
+      notifInner.innerHTML = '<div class="dismissed-text">Notification dismissed</div>';
+      setTimeout(function() {
+        dismissed = false;
+        dragX = 0;
+        notifInner.innerHTML =
+          '<div class="actions-row">' +
+            '<button class="action-btn mute" id="btnMute">Mute</button>' +
+            '<button class="action-btn delete" id="btnDelete">Delete</button>' +
+          '</div>' +
+          '<div class="notif-card" id="notifCard">' +
+            '<div class="app-icon">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">' +
+                '<polyline points="2,12 5,8 8,14 11,6 14,16 17,10 20,12 22,12" />' +
+              '</svg>' +
+            '</div>' +
+            '<div class="notif-content">' +
+              '<div class="notif-header">' +
+                '<span class="notif-title">Earthquake Notification</span>' +
+                '<span class="notif-time">8min ago</span>' +
+              '</div>' +
+              '<p class="notif-body">An 7.1 Earthquake was recorded off Russia</p>' +
+            '</div>' +
+          '</div>';
+        rebind();
+        updateUI();
+      }, 1200);
+    });
+  }
+
+  // Initial render
+  updateUI();
+})();
+</script>
+</body>
+</html>

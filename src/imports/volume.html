@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volume — Micro-interaction</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a0a;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    user-select: none;
+  }
+
+  #wrap { width: 360px; }
+
+  /* ── Card ── */
+  #card {
+    background: rgba(255,255,255,0.03);
+    border-radius: 14px;
+    padding: 16px 20px;
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: border-color 0.3s;
+  }
+  #card.danger { border-color: rgba(255,60,60,0.2); }
+
+  /* ── Row ── */
+  #row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  /* ── Icon column ── */
+  #icon-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 36px;
+    flex-shrink: 0;
+  }
+  #vol-icon {
+    width: 18px;
+    height: 18px;
+    transition: color 0.3s;
+    color: rgba(255,255,255,0.4);
+  }
+  #vol-pct {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.25);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+
+  /* ── Segmented bar ── */
+  #bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    flex: 1;
+    height: 32px;
+  }
+  .seg {
+    flex: 1;
+    border-radius: 1.5px;
+    background: rgba(255,255,255,0.06);
+    transition: background-color 0.15s;
+  }
+
+  /* ── Hold button ── */
+  #btn-hold {
+    width: 56px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.35);
+    font-size: 0.6rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  #btn-hold.active {
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.9);
+  }
+
+  /* ── Warning ── */
+  #warning {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+  }
+  #warning.show {
+    max-height: 40px;
+    opacity: 1;
+    margin-top: 12px;
+  }
+  #warning-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,60,60,0.08);
+    border: 1px solid rgba(255,60,60,0.12);
+  }
+  #warning-inner svg {
+    flex-shrink: 0;
+    animation: none;
+  }
+  #warning-inner svg.pulse {
+    animation: pulse-warn 1s ease-in-out infinite;
+  }
+  #warning-text {
+    font-size: 0.65rem;
+    color: rgba(255,80,80,0.7);
+  }
+
+  /* ── Hint ── */
+  #hint {
+    text-align: center;
+    margin-top: 16px;
+    color: rgba(255,255,255,0.35);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+
+  @keyframes pulse-warn {
+    0%, 100% { opacity: 0.8; }
+    50%       { opacity: 0.4; }
+  }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <div id="card">
+    <div id="row">
+
+      <!-- Icon + percent -->
+      <div id="icon-col">
+        <svg id="vol-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- path updated by JS -->
+        </svg>
+        <span id="vol-pct">0%</span>
+      </div>
+
+      <!-- Segmented bar -->
+      <div id="bar"></div>
+
+      <!-- Hold button -->
+      <button id="btn-hold">HOLD</button>
+    </div>
+
+    <!-- Warning -->
+    <div id="warning">
+      <div id="warning-inner">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,80,80,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span id="warning-text">Volume may damage hearing</span>
+      </div>
+    </div>
+  </div>
+
+  <p id="hint">Hold the button to increase volume</p>
+</div>
+
+<script>
+  const SEGMENTS = 24;
+
+  // Build segments
+  const bar = document.getElementById('bar');
+  const segs = [];
+  for (let i = 0; i < SEGMENTS; i++) {
+    const el = document.createElement('div');
+    el.className = 'seg';
+    const h = 8 + (i / SEGMENTS) * 24;
+    el.style.height = h + 'px';
+    bar.appendChild(el);
+    segs.push(el);
+  }
+
+  // State
+  let volume   = 0;
+  let holding  = false;
+
+  const card       = document.getElementById('card');
+  const volIcon    = document.getElementById('vol-icon');
+  const volPct     = document.getElementById('vol-pct');
+  const btnHold    = document.getElementById('btn-hold');
+  const warning    = document.getElementById('warning');
+  const warnIcon   = warning.querySelector('svg');
+
+  // ── SVG icon paths ──────────────────────────────────
+  const ICON_MUTE = `<path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
+  const ICON_LOW  = `<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>`;
+  const ICON_HIGH = `<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>`;
+
+  function getSegColor(i, v) {
+    const sp = (i + 1) / SEGMENTS;
+    if (sp > v) return 'rgba(255,255,255,0.06)';
+    if (sp < 0.4) return `rgba(255,255,255,${0.6 + sp * 0.6})`;
+    if (sp < 0.65) {
+      const t = (sp - 0.4) / 0.25;
+      return `rgba(255,${Math.round(230 - t*60)},${Math.round(220 - t*150)},0.9)`;
+    }
+    if (sp < 0.85) {
+      const t = (sp - 0.65) / 0.2;
+      return `rgba(255,${Math.round(170 - t*100)},${Math.round(70 - t*40)},0.95)`;
+    }
+    const t = Math.min(1, (sp - 0.85) / 0.15);
+    return `rgba(255,${Math.round(70 - t*40)},${Math.round(30 - t*10)},1)`;
+  }
+
+  function getSegGlow(i, v) {
+    const sp = (i + 1) / SEGMENTS;
+    if (sp > v)   return 'none';
+    if (sp < 0.4) return 'none';
+    if (sp < 0.7) return '0 0 6px rgba(255,180,50,0.3)';
+    return '0 0 8px rgba(255,60,60,0.5)';
+  }
+
+  // ── Animation loop ──────────────────────────────────
+  function tick() {
+    volume = holding
+      ? Math.min(1, volume + 0.004)
+      : Math.max(0, volume - 0.01);
+
+    const pct     = Math.round(volume * 100);
+    const isDanger  = volume > 0.8;
+    const isWarning = volume > 0.6;
+
+    // Percent label
+    volPct.textContent = pct + '%';
+    volPct.style.color = isDanger ? 'rgba(255,80,80,0.8)' : 'rgba(255,255,255,0.25)';
+
+    // Icon
+    volIcon.style.color = isDanger
+      ? 'rgba(255,80,80,0.9)'
+      : isWarning
+        ? 'rgba(255,200,100,0.8)'
+        : 'rgba(255,255,255,0.4)';
+    volIcon.innerHTML = volume < 0.01 ? ICON_MUTE : volume < 0.5 ? ICON_LOW : ICON_HIGH;
+
+    // Segments
+    segs.forEach((s, i) => {
+      s.style.backgroundColor = getSegColor(i, volume);
+      s.style.boxShadow = getSegGlow(i, volume);
+    });
+
+    // Jitter
+    const intensity = Math.pow(volume, 2.8);
+    const maxJ = 6;
+    if (volume > 0.01) {
+      const jx = (Math.random() - 0.5) * 2 * maxJ * intensity;
+      const jy = (Math.random() - 0.5) * 2 * maxJ * intensity;
+      bar.style.transform = `translate(${jx}px,${jy}px)`;
+    } else {
+      bar.style.transform = 'translate(0,0)';
+    }
+
+    // Card border + warning
+    card.classList.toggle('danger', isDanger);
+    warning.classList.toggle('show', isDanger);
+    warnIcon.classList.toggle('pulse', isDanger);
+
+    requestAnimationFrame(tick);
+  }
+
+  tick();
+
+  // ── Hold button ─────────────────────────────────────
+  btnHold.addEventListener('mousedown',  startHold);
+  btnHold.addEventListener('touchstart', startHold, { passive: true });
+  window.addEventListener('mouseup',  endHold);
+  window.addEventListener('touchend', endHold);
+
+  function startHold() {
+    holding = true;
+    btnHold.classList.add('active');
+    btnHold.textContent = '+';
+  }
+  function endHold() {
+    holding = false;
+    btnHold.classList.remove('active');
+    btnHold.textContent = 'HOLD';
+  }
+</script>
+</body>
+</html>

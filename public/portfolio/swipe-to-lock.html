@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Swipe to Lock</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #141414;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .swipe-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 373px;
+    height: 373px;
+    gap: 20px;
+    touch-action: none;
+  }
+
+  .track-outer {
+    position: relative;
+    width: 300px;
+    height: 85px;
+    max-width: 95vw;
+  }
+
+  .track-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: 100px;
+    overflow: hidden;
+    border: 1.5px solid rgba(180,232,90,0);
+    transition: border-color 0.4s ease;
+  }
+
+  .track-bg.locked {
+    border-color: rgba(180,232,90,0.25);
+  }
+
+  .track-shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(180,232,90,0.08) 50%, transparent 100%);
+    transform: translateX(-100%);
+    animation: shimmer 2.5s ease-in-out infinite 1s;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+
+  @keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .track-text {
+    position: absolute;
+    top: 50%;
+    left: 75px;
+    right: 10px;
+    transform: translateY(-50%);
+    color: #C7FF67;
+    font-size: 1.4rem;
+    font-weight: 300;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    pointer-events: none;
+    z-index: 1;
+    text-align: center;
+  }
+
+  .track-text-swipe {
+    transition: opacity 0.15s;
+  }
+
+  .track-text-locked {
+    position: absolute;
+    left: -65px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s ease 0s;
+  }
+
+  .track-text-locked.visible {
+    opacity: 1;
+    transition-delay: 0.1s;
+  }
+
+  /* Handle */
+  .handle-wrap {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 65px;
+    height: 65px;
+    z-index: 10;
+    cursor: grab;
+    will-change: transform;
+  }
+
+  .handle-wrap.locked { cursor: pointer; }
+  .handle-wrap.dragging { cursor: grabbing; }
+
+  .handle-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: visible;
+    border: 2px solid #B4E85A;
+    transition: border-color 0.3s ease, background-color 0.15s ease;
+  }
+
+  .handle-circle.locked {
+    border-color: rgba(180,232,90,0.5);
+    background-color: rgba(180,232,90,0.05);
+  }
+
+  /* Glass effect layers */
+  .handle-glass-1, .handle-glass-2, .handle-glass-3 {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .handle-glass-1 {
+    background: linear-gradient(-38deg, transparent 30%, rgba(255,255,255,0.15) 55%, rgba(255,255,255,0.25) 60%, transparent 75%);
+  }
+
+  .handle-glass-2 {
+    background: radial-gradient(ellipse at 35% 25%, rgba(200,240,120,0.12) 0%, transparent 50%);
+  }
+
+  .handle-glass-3 {
+    inset: 2px;
+    border: 1px solid rgba(180,232,90,0.15);
+  }
+
+  /* Chevron */
+  .chevron-icon {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.15s;
+  }
+
+  /* Lock icon */
+  .lock-icon-wrap {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .lock-shackle {
+    transition: transform 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+  }
+
+  .lock-shackle.open {
+    transform: translateY(-18px) rotate(35deg);
+    transform-origin: 32px 24.5px;
+  }
+
+  .lock-shackle.closed {
+    transform: translateY(0) rotate(0deg);
+    transform-origin: 32px 24.5px;
+  }
+
+  .lock-svg {
+    overflow: visible;
+  }
+
+  .lock-svg.bounce {
+    animation: lockBounce 0.6s ease-out 0.1s both;
+  }
+
+  @keyframes lockBounce {
+    0%   { transform: scale(1) rotate(0deg); }
+    25%  { transform: scale(1.35) rotate(-3deg); }
+    45%  { transform: scale(0.9) rotate(3deg); }
+    70%  { transform: scale(1.1) rotate(-1.5deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  .lock-glow {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(199,255,103,0.4) 0%, transparent 70%);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .lock-glow.active {
+    animation: lockGlow 0.6s ease-out 0.15s forwards;
+  }
+
+  @keyframes lockGlow {
+    0%   { transform: scale(0); opacity: 0; }
+    40%  { transform: scale(2.2); opacity: 0.8; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  /* Pulse ring */
+  .pulse-ring {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    border: 2px solid rgba(180,232,90,0.4);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .pulse-ring.active {
+    animation: pulseRing 0.8s ease-out forwards;
+  }
+
+  @keyframes pulseRing {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  /* Status row */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(180,232,90,0.3);
+    transition: all 0.3s ease;
+  }
+
+  .status-dot.locked {
+    background-color: #C7FF67;
+    box-shadow: 0 0 8px rgba(199,255,103,0.5);
+  }
+
+  .status-text {
+    color: rgba(255,255,255,0.3);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.3s ease;
+  }
+
+  .status-text.locked {
+    color: rgba(199,255,103,0.5);
+  }
+
+  /* Drag overlay */
+  .drag-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    cursor: grabbing;
+    touch-action: none;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="swipe-wrapper">
+  <div class="track-outer">
+    <div class="track-bg" id="trackBg">
+      <div class="track-shimmer" id="trackShimmer"></div>
+    </div>
+
+    <div class="track-text">
+      <span class="track-text-swipe" id="textSwipe">Swipe to lock</span>
+      <span class="track-text-locked" id="textLocked">Locked</span>
+    </div>
+
+    <div class="handle-wrap" id="handle">
+      <div class="handle-circle" id="handleCircle">
+        <div class="handle-glass-1" id="glass1"></div>
+        <div class="handle-glass-2" id="glass2"></div>
+        <div class="handle-glass-3" id="glass3"></div>
+
+        <div class="chevron-icon" id="chevronWrap">
+          <svg width="22" height="40" viewBox="0 0 46 80" fill="none">
+            <path clip-rule="evenodd" d="M44.171 44.4437L8.83296 80L0 71.1125L30.9216 40L0 8.88749L8.83296 0L44.171 35.5563C45.3421 36.7349 46 38.3333 46 40C46 41.6666 45.3421 43.2651 44.171 44.4437Z" fill="#B4E85A" fill-rule="evenodd" />
+          </svg>
+        </div>
+
+        <div class="lock-icon-wrap" id="lockWrap">
+          <div class="lock-glow" id="lockGlow"></div>
+          <svg class="lock-svg" id="lockSvg" width="28" height="36" viewBox="0 0 56 70" fill="none">
+            <rect x="0" y="24.5" width="56" height="45.5" rx="7" fill="#C7FF67" />
+            <circle cx="28" cy="44" r="6" fill="#1a1a0a" />
+            <rect x="25" y="44" width="6" height="12" rx="2" fill="#1a1a0a" />
+            <path class="lock-shackle open" id="lockShackle" d="M17.5 24.5V17.5C17.5 11.725 22.225 7 28 7C33.775 7 38.5 11.725 38.5 17.5V24.5" stroke="#C7FF67" stroke-width="7" stroke-linecap="round" fill="none" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="pulse-ring" id="pulseRing"></div>
+  </div>
+
+  <div class="status-row">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Drag handle to lock</span>
+  </div>
+</div>
+
+<div class="drag-overlay" id="dragOverlay"></div>
+
+<script>
+(function() {
+  var TRACK_WIDTH = 300;
+  var HANDLE_SIZE = 65;
+  var PADDING = 10;
+  var MAX_DRAG = TRACK_WIDTH - HANDLE_SIZE - PADDING * 2;
+  var LOCK_THRESHOLD = MAX_DRAG * 0.65;
+
+  // Elements
+  var handle = document.getElementById("handle");
+  var handleCircle = document.getElementById("handleCircle");
+  var trackBg = document.getElementById("trackBg");
+  var trackShimmer = document.getElementById("trackShimmer");
+  var textSwipe = document.getElementById("textSwipe");
+  var textLocked = document.getElementById("textLocked");
+  var chevronWrap = document.getElementById("chevronWrap");
+  var lockWrap = document.getElementById("lockWrap");
+  var lockGlow = document.getElementById("lockGlow");
+  var lockSvg = document.getElementById("lockSvg");
+  var lockShackle = document.getElementById("lockShackle");
+  var pulseRing = document.getElementById("pulseRing");
+  var statusDot = document.getElementById("statusDot");
+  var statusText = document.getElementById("statusText");
+  var glass1 = document.getElementById("glass1");
+  var glass2 = document.getElementById("glass2");
+  var glass3 = document.getElementById("glass3");
+  var dragOverlay = document.getElementById("dragOverlay");
+
+  // State
+  var pos = 0;
+  var isLocked = false;
+  var isDragging = false;
+  var dragStartX = 0;
+  var dragStartPos = 0;
+
+  // Spring animation
+  var springRaf = null;
+  var springVel = 0;
+
+  function springTo(target, opts, onComplete) {
+    var stiffness = (opts && opts.stiffness) || 400;
+    var damping = (opts && opts.damping) || 25;
+    if (springRaf) cancelAnimationFrame(springRaf);
+    springVel = 0;
+    var prev = null;
+
+    function tick(now) {
+      var dt = prev ? Math.min((now - prev) / 1000, 0.032) : 1/60;
+      prev = now;
+      var steps = 8;
+      var subDt = dt / steps;
+      for (var i = 0; i < steps; i++) {
+        var force = -stiffness * (pos - target) - damping * springVel;
+        springVel += force * subDt;
+        pos += springVel * subDt;
+      }
+      if (Math.abs(pos - target) < 0.15 && Math.abs(springVel) < 0.15) {
+        pos = target;
+        springVel = 0;
+        updateUI();
+        if (onComplete) onComplete();
+        return;
+      }
+      updateUI();
+      springRaf = requestAnimationFrame(tick);
+    }
+    springRaf = requestAnimationFrame(tick);
+  }
+
+  function clamp(min, max, v) { return Math.max(min, Math.min(max, v)); }
+  function lerp(a, b, t) { return a + (b - a) * clamp(0, 1, t); }
+  function mapRange(inMin, inMax, outMin, outMax, value) {
+    return lerp(outMin, outMax, clamp(0, 1, (value - inMin) / (inMax - inMin)));
+  }
+
+  function updateUI() {
+    var progress = MAX_DRAG > 0 ? pos / MAX_DRAG : 0;
+
+    // Handle position
+    handle.style.transform = "translateX(" + pos + "px)";
+
+    // Track background color
+    var bgAlpha = lerp(0.15, 0.05, clamp(0, 1, progress));
+    trackBg.style.backgroundColor = "rgba(180,232,90," + bgAlpha + ")";
+
+    // Chevron opacity
+    var chevOpacity = mapRange(MAX_DRAG * 0.85, MAX_DRAG * 0.9, 1, 0, pos);
+    chevronWrap.style.opacity = chevOpacity;
+
+    // Lock icon opacity
+    var lockOpacity = mapRange(MAX_DRAG * 0.9, MAX_DRAG * 0.95, 0, 1, pos);
+    lockWrap.style.opacity = lockOpacity;
+
+    // Text opacity
+    var txtOpacity = mapRange(0, MAX_DRAG * 0.4, 1, 0, pos);
+    textSwipe.style.opacity = isLocked ? 0 : txtOpacity;
+
+    // Glass effect
+    var glassOpacity = mapRange(0, MAX_DRAG * 0.3, 0, 1, pos);
+    glass1.style.opacity = glassOpacity;
+    glass2.style.opacity = glassOpacity;
+    glass3.style.opacity = glassOpacity;
+
+    // Handle glow
+    var r = lerp(0, 180, clamp(0, 1, progress));
+    var g = lerp(0, 232, clamp(0, 1, progress));
+    var b = lerp(0, 90, clamp(0, 1, progress));
+    var a = lerp(0.8, 0.3, clamp(0, 1, progress));
+    handleCircle.style.boxShadow = "0 0 15px 3px rgba(" + r + "," + g + "," + b + "," + a + ")";
+
+    // Handle background
+    if (progress <= 0.4) {
+      var t = progress / 0.4;
+      handleCircle.style.backgroundColor = "rgba(" + lerp(0,180,t) + "," + lerp(0,232,t) + "," + lerp(0,90,t) + "," + lerp(0,0.12,t) + ")";
+    } else {
+      handleCircle.style.backgroundColor = "rgba(180,232,90," + lerp(0.12, 0.15, (progress - 0.4) / 0.6) + ")";
+    }
+  }
+
+  function setLocked(locked) {
+    isLocked = locked;
+
+    if (locked) {
+      trackBg.classList.add("locked");
+      trackShimmer.style.opacity = "0";
+      textSwipe.style.opacity = "0";
+      textLocked.classList.add("visible");
+      handleCircle.classList.add("locked");
+      handle.classList.add("locked");
+      handle.classList.remove("dragging");
+      statusDot.classList.add("locked");
+      statusText.classList.add("locked");
+      statusText.textContent = "Secured \u2014 tap to unlock";
+
+      // Lock animation
+      lockShackle.classList.remove("open");
+      lockShackle.classList.add("closed");
+      lockSvg.classList.add("bounce");
+      lockGlow.classList.add("active");
+
+      // Pulse ring
+      pulseRing.classList.remove("active");
+      void pulseRing.offsetWidth; // reflow
+      pulseRing.classList.add("active");
+    } else {
+      trackBg.classList.remove("locked");
+      trackShimmer.style.opacity = "1";
+      textLocked.classList.remove("visible");
+      handleCircle.classList.remove("locked");
+      handle.classList.remove("locked");
+      statusDot.classList.remove("locked");
+      statusText.classList.remove("locked");
+      statusText.textContent = "Drag handle to lock";
+
+      lockShackle.classList.remove("closed");
+      lockShackle.classList.add("open");
+      lockSvg.classList.remove("bounce");
+      lockGlow.classList.remove("active");
+      pulseRing.classList.remove("active");
+    }
+  }
+
+  // Pointer events
+  handle.addEventListener("pointerdown", function(e) {
+    if (isLocked) return;
+    e.preventDefault();
+    if (springRaf) { cancelAnimationFrame(springRaf); springRaf = null; }
+    dragStartX = e.clientX;
+    dragStartPos = pos;
+    isDragging = true;
+    handle.classList.add("dragging");
+    dragOverlay.style.display = "block";
+  });
+
+  dragOverlay.addEventListener("pointermove", function(e) {
+    if (!isDragging) return;
+    var dx = e.clientX - dragStartX;
+    var raw = dragStartPos + dx;
+    if (raw > MAX_DRAG) {
+      pos = MAX_DRAG + (raw - MAX_DRAG) * 0.05;
+    } else if (raw < 0) {
+      pos = raw * 0.05;
+    } else {
+      pos = raw;
+    }
+    updateUI();
+  });
+
+  function endDrag() {
+    if (!isDragging) return;
+    isDragging = false;
+    handle.classList.remove("dragging");
+    dragOverlay.style.display = "none";
+
+    if (pos >= LOCK_THRESHOLD) {
+      setLocked(true);
+      springTo(MAX_DRAG, { stiffness: 400, damping: 25 });
+    } else {
+      springTo(0, { stiffness: 500, damping: 30 });
+    }
+  }
+
+  dragOverlay.addEventListener("pointerup", endDrag);
+  dragOverlay.addEventListener("pointercancel", endDrag);
+
+  // Tap to unlock
+  handle.addEventListener("click", function() {
+    if (!isLocked) return;
+    setLocked(false);
+    springTo(0, { stiffness: 400, damping: 25 });
+  });
+
+  // Initial render
+  updateUI();
+})();
+</script>
+</body>
+</html>

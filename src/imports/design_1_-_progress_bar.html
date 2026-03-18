@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Progress Bar — Micro-interaction</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #060606;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  #card {
+    background: #0a0a0a;
+    border-radius: 20px;
+    padding: 40px 36px 36px;
+    width: 420px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 0 30px rgba(255,255,255,0.03), inset 0 0 30px rgba(255,255,255,0.01);
+    transition: box-shadow 0.6s ease, border-color 0.6s ease;
+  }
+
+  #progress-wrapper {
+    position: relative;
+    width: 100%;
+    height: 16px;
+  }
+
+  #track {
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 0 12px rgba(255,255,255,0.04);
+    transition: box-shadow 0.3s ease;
+    padding: 1px;
+  }
+
+  #fill {
+    height: 100%;
+    border-radius: 7px;
+    background: #fff;
+    width: 0%;
+    box-shadow: 0 0 8px rgba(255,255,255,0.4), 0 0 20px rgba(255,255,255,0.15);
+  }
+
+  #spark-canvas {
+    position: absolute;
+    top: -50px;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #status {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    height: 18px;
+    transition: opacity 0.4s ease, color 0.4s ease;
+    opacity: 0;
+  }
+
+  #status.done {
+    color: rgba(255,255,255,0.7);
+  }
+
+  #buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  button {
+    width: 100%;
+    height: 56px;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: transform 0.15s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  #btn-finish {
+    background: #fff;
+    color: #000;
+    border: none;
+    box-shadow: 0 0 15px rgba(255,255,255,0.08);
+  }
+
+  #btn-finish.completed {
+    box-shadow: 0 0 30px rgba(255,255,255,0.2);
+  }
+
+  #btn-back {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  #btn-back:hover {
+    border-color: rgba(255,255,255,0.25);
+  }
+
+  button:active {
+    transform: scale(0.97);
+  }
+
+  #shine {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255,255,255,0.0) 20%,
+      rgba(255,255,255,0.85) 50%,
+      rgba(255,255,255,0.0) 80%,
+      transparent 100%
+    );
+    border-radius: 7px;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  #shine.sweep {
+    animation: shineSweep 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes shineSweep {
+    0%   { left: -60%; opacity: 1; }
+    100% { left: 110%; opacity: 0.4; }
+  }
+</style>
+</head>
+<body>
+
+<div id="card">
+  <div id="progress-wrapper">
+    <div id="track">
+      <div id="fill">
+        <div id="shine"></div>
+      </div>
+    </div>
+    <canvas id="spark-canvas"></canvas>
+  </div>
+  <div id="status"></div>
+  <div id="buttons">
+    <button id="btn-finish">Run</button>
+    <button id="btn-back">Reset</button>
+  </div>
+</div>
+
+<script>
+const STATUS_MESSAGES = [
+  { at: 0.00, text: "Initializing..." },
+  { at: 0.08, text: "Loading modules..." },
+  { at: 0.18, text: "Preparing assets..." },
+  { at: 0.30, text: "Processing..." },
+  { at: 0.50, text: "Compiling..." },
+  { at: 0.70, text: "Building..." },
+  { at: 0.88, text: "Finalizing..." },
+  { at: 1.00, text: "Complete" },
+];
+
+const DURATION = 4500;
+
+const card      = document.getElementById('card');
+const track     = document.getElementById('track');
+const fill      = document.getElementById('fill');
+const canvas    = document.getElementById('spark-canvas');
+const statusEl  = document.getElementById('status');
+const btnFinish = document.getElementById('btn-finish');
+const btnBack   = document.getElementById('btn-back');
+const ctx       = canvas.getContext('2d');
+
+let particles = [];
+let animating = false;
+let completed = false;
+let startTime = null;
+let animId    = null;
+let currentStatusIndex = -1;
+
+function resizeCanvas() {
+  canvas.width  = canvas.parentElement.offsetWidth;
+  canvas.height = 120;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// — Easing —
+function customEase(t) {
+  const k = 12;
+  return (Math.exp(k * t) - 1) / (Math.exp(k) - 1);
+}
+function customEaseDeriv(t) {
+  const k = 12;
+  return (k * Math.exp(k * t)) / (Math.exp(k) - 1);
+}
+
+// — Sparks —
+function createSpark(x, y, intensity) {
+  const backSpeed = 3 + Math.random() * 4 + intensity * 5;
+  const b = 180 + Math.random() * 75;
+  return {
+    x, y: y + (Math.random() - 0.5) * 6,
+    vx: -backSpeed,
+    vy: (Math.random() - 0.5) * 2.2,
+    life: 1.0,
+    decay: 0.022 + Math.random() * 0.028,
+    size: 0.3 + Math.random() * 0.8,
+    gravity: 0.008,
+    color: `rgb(${b},${b},${b})`
+  };
+}
+
+function updateSpark(p) {
+  p.x  += p.vx;
+  p.vy += p.gravity;
+  p.y  += p.vy;
+  p.life -= p.decay;
+  p.vx *= 0.97;
+}
+
+function drawSpark(p) {
+  if (p.life <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = p.life * 0.85;
+  ctx.strokeStyle = p.color;
+  ctx.lineWidth   = p.size * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x + p.vx * 2.5, p.y + p.vy * 0.6);
+  ctx.stroke();
+
+  ctx.globalAlpha  = p.life;
+  ctx.fillStyle    = '#fff';
+  ctx.shadowBlur   = 4;
+  ctx.shadowColor  = 'rgba(255,255,255,0.7)';
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function emitSparks(progressPct, intensity) {
+  const x = progressPct * canvas.width;
+  const y = 50 + 8;
+  const count = Math.floor(2 + intensity * 12);
+  for (let i = 0; i < count; i++) particles.push(createSpark(x, y, intensity));
+}
+
+// — Status text —
+function updateStatus(rawT) {
+  let newIndex = 0;
+  for (let i = STATUS_MESSAGES.length - 1; i >= 0; i--) {
+    if (rawT >= STATUS_MESSAGES[i].at) { newIndex = i; break; }
+  }
+  if (newIndex !== currentStatusIndex) {
+    currentStatusIndex = newIndex;
+    statusEl.style.opacity = '0';
+    setTimeout(() => {
+      statusEl.textContent = STATUS_MESSAGES[newIndex].text;
+      statusEl.style.opacity = '1';
+    }, 150);
+  }
+}
+
+// — Glow —
+function updateGlow(easedT, rawT) {
+  const gi  = 0.15 + rawT * 0.6;
+  const gs  = 8   + rawT * 25;
+  const gs2 = 20  + rawT * 40;
+  fill.style.boxShadow = `
+    0 0 ${gs}px rgba(255,255,255,${gi}),
+    0 0 ${gs2}px rgba(255,255,255,${gi * 0.4}),
+    0 0 ${gs2 * 1.5}px rgba(255,255,255,${gi * 0.1})
+  `;
+  const tg = 0.03 + rawT * 0.08;
+  track.style.boxShadow = `0 0 ${12 + rawT * 20}px rgba(255,255,255,${tg})`;
+}
+
+// — Main animation loop —
+function animateProgress(timestamp) {
+  if (!startTime) startTime = timestamp;
+  const elapsed = timestamp - startTime;
+  const rawT    = Math.min(elapsed / DURATION, 1);
+  const easedT  = customEase(rawT);
+
+  fill.style.width = (easedT * 100) + '%';
+  updateGlow(easedT, rawT);
+  updateStatus(rawT);
+
+  const speed          = customEaseDeriv(rawT);
+  const normalizedSpeed = Math.min(speed / 12, 1);
+
+  if (rawT > 0.05 && easedT > 0.005) emitSparks(easedT, normalizedSpeed);
+  if (rawT > 0.8)                     emitSparks(easedT, Math.min(normalizedSpeed * 1.5, 1));
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => { updateSpark(p); drawSpark(p); });
+  particles = particles.filter(p => p.life > 0);
+
+  if (rawT < 1) {
+    animId = requestAnimationFrame(animateProgress);
+    return;
+  }
+
+  // ---- Completion ----
+  fill.style.width = '100%';
+  completed  = true;
+  animating  = false;
+  btnFinish.textContent = 'Complete';
+  btnFinish.classList.add('completed');
+  statusEl.classList.add('done');
+
+  // Big burst
+  for (let i = 0; i < 45; i++) {
+    particles.push(createSpark(canvas.width, 50 + 8 + (Math.random() - 0.5) * 8, 1.2));
+  }
+
+  // Shine sweep — slight delay so it starts just after bar hits 100%
+  const shine = document.getElementById('shine');
+  setTimeout(() => {
+    shine.classList.add('sweep');
+    // Remove class after so it can replay on reset
+    setTimeout(() => shine.classList.remove('sweep'), 800);
+  }, 80);
+
+  // Flash
+  fill.style.transition  = 'none';
+  fill.style.boxShadow   = `
+    0 0 60px rgba(255,255,255,1),
+    0 0 100px rgba(255,255,255,0.7),
+    0 0 160px rgba(255,255,255,0.35),
+    0 0 240px rgba(255,255,255,0.12)
+  `;
+  track.style.boxShadow  = `0 0 70px rgba(255,255,255,0.3)`;
+  card.style.boxShadow   = `0 0 100px rgba(255,255,255,0.1), inset 0 0 50px rgba(255,255,255,0.04)`;
+  card.style.borderColor = `rgba(255,255,255,0.35)`;
+
+  // Settle
+  setTimeout(() => {
+    fill.style.transition  = 'box-shadow 2s ease';
+    fill.style.boxShadow   = `
+      0 0 20px rgba(255,255,255,0.6),
+      0 0 45px rgba(255,255,255,0.2),
+      0 0 80px rgba(255,255,255,0.08)
+    `;
+    track.style.transition = 'box-shadow 2s ease';
+    track.style.boxShadow  = `0 0 30px rgba(255,255,255,0.1)`;
+  }, 600);
+
+  // Drain remaining particles
+  const postLoop = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => { updateSpark(p); drawSpark(p); });
+    particles = particles.filter(p => p.life > 0);
+    if (particles.length > 0) requestAnimationFrame(postLoop);
+  };
+  postLoop();
+}
+
+// — Reset —
+function reset() {
+  if (animId) cancelAnimationFrame(animId);
+  startTime           = null;
+  animating           = false;
+  completed           = false;
+  particles           = [];
+  currentStatusIndex  = -1;
+
+  fill.style.width      = '0%';
+  fill.style.transition = 'none';
+  fill.style.boxShadow  = '0 0 8px rgba(255,255,255,0.4), 0 0 20px rgba(255,255,255,0.15)';
+
+  track.style.transition = 'none';
+  track.style.boxShadow  = '0 0 12px rgba(255,255,255,0.04)';
+
+  card.style.boxShadow   = '0 0 30px rgba(255,255,255,0.03), inset 0 0 30px rgba(255,255,255,0.01)';
+  card.style.borderColor = 'rgba(255,255,255,0.12)';
+
+  statusEl.textContent = '';
+  statusEl.classList.remove('done');
+  statusEl.style.opacity = '0';
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  btnFinish.textContent = 'Run';
+  btnFinish.classList.remove('completed');
+}
+
+// — Buttons —
+btnFinish.addEventListener('click', () => {
+  if (animating) return;
+  if (completed) { reset(); return; }
+  animating = true;
+  requestAnimationFrame(animateProgress);
+});
+
+btnBack.addEventListener('click', reset);
+</script>
+</body>
+</html>
