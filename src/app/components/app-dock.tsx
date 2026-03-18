@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
-import imgInstagram from "figma:asset/0794d5602914bfd59dcbd6f00460104b3fa38ae8.png";
-import imgSpotify from "figma:asset/430fad33956f69f9e618610c724f86bc968db5d0.png";
-import imgLinkedIn from "figma:asset/73d6004f1781089fa72bc21ff51349707d6e56f6.png";
-import imgNetflix from "figma:asset/af755da27f101cfedd13463d030ae9b08404b46a.png";
-import imgCinema4D from "figma:asset/00e85cfa4897cd5ab0543cc6ad48ee6c7d5ea1c7.png";
-import imgFigma from "figma:asset/92cacf313bd37f358c3db5a725e5c38d366ac1fc.png";
+const imgInstagram = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png";
+const imgSpotify = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Spotify_icon.svg/512px-Spotify_icon.svg.png";
+const imgLinkedIn = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/600px-LinkedIn_logo_initials.png";
+const imgNetflix = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Netflix_2015_N_logo.svg/400px-Netflix_2015_N_logo.svg.png";
+const imgCinema4D = "https://upload.wikimedia.org/wikipedia/en/d/d8/C4D_Logo.png";
+const imgFigma = "https://upload.wikimedia.org/wikipedia/commons/3/33/Figma-logo.svg";
 
 interface AppItem {
   id: string;
