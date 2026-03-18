@@ -14,7 +14,7 @@ import { FinanceDonut } from "./components/finance-donut";
 import { BookingButton } from "./components/booking-button";
 import { SkeletonSearch } from "./components/skeleton-search";
 import { ContextToolbar } from "./components/context-toolbar";
-import { SwipeNotification } from "./components/swipe-notification";
+import SwipeNotification from "./components/swipe-notification";
 import { LiquidBlob } from "./components/liquid-blob";
 import { useState } from "react";
 import { motion } from "motion/react";
