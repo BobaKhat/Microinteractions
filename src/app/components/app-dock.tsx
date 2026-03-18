@@ -1,27 +1,21 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
-const imgInstagram = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png";
-const imgSpotify = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Spotify_icon.svg/512px-Spotify_icon.svg.png";
-const imgLinkedIn = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/600px-LinkedIn_logo_initials.png";
-const imgNetflix = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Netflix_2015_N_logo.svg/400px-Netflix_2015_N_logo.svg.png";
-const imgCinema4D = "https://upload.wikimedia.org/wikipedia/en/d/d8/C4D_Logo.png";
-const imgFigma = "https://upload.wikimedia.org/wikipedia/commons/3/33/Figma-logo.svg";
-
 interface AppItem {
   id: string;
   name: string;
   img: string;
-  color: string; // brand color for glow + dot
+  color: string;
 }
 
 const apps: AppItem[] = [
-  { id: "instagram", name: "Instagram", img: imgInstagram, color: "#E1306C" },
-  { id: "spotify", name: "Spotify", img: imgSpotify, color: "#1DB954" },
-  { id: "linkedin", name: "LinkedIn", img: imgLinkedIn, color: "#0A66C2" },
-  { id: "netflix", name: "Netflix", img: imgNetflix, color: "#E50914" },
-  { id: "cinema4d", name: "Cinema 4D", img: imgCinema4D, color: "#4A6CF7" },
-  { id: "figma", name: "Figma", img: imgFigma, color: "#A259FF" },
+  { id: "instagram", name: "Instagram", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png", color: "#E1306C" },
+  { id: "spotify", name: "Spotify", img: "https://cdn.simpleicons.org/spotify/1DB954", color: "#1DB954" },
+  { id: "linkedin", name: "LinkedIn", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/600px-LinkedIn_logo_initials.png", color: "#0A66C2" },
+  { id: "youtube", name: "YouTube", img: `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><defs><linearGradient id="yg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="%23FF0000"/><stop offset="1" stop-color="%23CC0000"/></linearGradient></defs><rect width="256" height="256" rx="56" fill="url(%23yg)"/><path d="M176.4,120.1l-64-40A10,10,0,0,0,97,88.9v80.2a10,10,0,0,0,15.4,8.4l64-40a9.6,9.6,0,0,0,0-17.4Z" fill="%23fff"/></svg>`, color: "#FF0000" },
+  { id: "cinema4d", name: "Cinema 4D", img: "https://upload.wikimedia.org/wikipedia/en/d/d8/C4D_Logo.png", color: "#4A6CF7" },
+  { id: "figma", name: "Figma", img: `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="%231a1a1a"/>
+<g transform="translate(68,38)"><path d="M60,0H30A30,30,0,0,0,30,60H60Z" fill="%23FF4B1F"/><path d="M60,0H90A30,30,0,0,1,90,60H60Z" fill="%23FF8A75"/><path d="M60,60H30A30,30,0,0,0,30,120H60Z" fill="%23B45FFF"/><circle cx="90" cy="90" r="30" fill="%2325D4FF"/><path d="M30,120H60V150A30,30,0,0,1,0,150V150A30,30,0,0,1,30,120Z" fill="%230FE89B"/></g></svg>`, color: "#A259FF" },
 ];
 
 function DockIcon({ app }: { app: AppItem }) {
@@ -34,7 +28,6 @@ function DockIcon({ app }: { app: AppItem }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Colored dot that appears when icon jumps up */}
       <AnimatePresence>
         {hovered && (
           <motion.div
@@ -57,17 +50,9 @@ function DockIcon({ app }: { app: AppItem }) {
         )}
       </AnimatePresence>
 
-      {/* Icon that jumps up */}
       <motion.div
-        animate={{
-          y: hovered ? -28 : 0,
-        }}
-        transition={{
-          type: "spring",
-          stiffness: 500,
-          damping: 15,
-          mass: 0.6,
-        }}
+        animate={{ y: hovered ? -28 : 0 }}
+        transition={{ type: "spring", stiffness: 500, damping: 15, mass: 0.6 }}
         style={{
           width: 45,
           height: 45,
@@ -77,12 +62,8 @@ function DockIcon({ app }: { app: AppItem }) {
           overflow: "visible",
         }}
       >
-        {/* Glow behind icon */}
         <motion.div
-          animate={{
-            opacity: hovered ? 1 : 0,
-            scale: hovered ? 1 : 0.8,
-          }}
+          animate={{ opacity: hovered ? 1 : 0, scale: hovered ? 1 : 0.8 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
           style={{
             position: "absolute",
@@ -93,8 +74,6 @@ function DockIcon({ app }: { app: AppItem }) {
             zIndex: 0,
           }}
         />
-
-        {/* Logo image */}
         <img
           alt={app.name}
           src={app.img}
@@ -103,7 +82,7 @@ function DockIcon({ app }: { app: AppItem }) {
             width: 45,
             height: 45,
             borderRadius: 10,
-            objectFit: "cover",
+            objectFit: "contain",
             position: "relative",
             zIndex: 1,
             pointerEvents: "none",
