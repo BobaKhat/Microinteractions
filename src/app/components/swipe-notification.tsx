@@ -6,7 +6,7 @@ import {
   animate,
   AnimatePresence,
 } from "motion/react";
-onst imgAppIcon = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png";
+const imgAppIcon = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png";
 
 const CONTAINER_W = 310;
 const GAP = 5;
